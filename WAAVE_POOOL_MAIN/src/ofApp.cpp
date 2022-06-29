@@ -21,6 +21,12 @@ bool scaleswitch=1;
 const int fbob=60;
 //const int fbob=120;
 
+// ALEKSOO: these variables are used for "exit" mechanism
+long int timeOnCycle = time(NULL); // getting current time, just to initalize with something
+long int timeConstrain = 0;
+bool lock1 = false;
+bool lock2 = false;
+
 
 //might be unnecessary now!!
 bool hdmi_input_switch=0;
@@ -867,6 +873,9 @@ void ofApp::midibiz(){
 	for(unsigned int i = 0; i < midiMessages.size(); ++i) {
 
 		ofxMidiMessage &message = midiMessages[i];
+		
+		// ALEKSOO: getting current time for cycle, I'm not sure if it's placed correctly in code (in for loop), I need your advice on that
+		timeOnCycle = time(NULL);
 	
 		if(message.status < MIDI_SYSEX) {
 			//text << "chan: " << message.channel;
@@ -1267,6 +1276,13 @@ void ofApp::midibiz(){
                 }
                 
                 if(message.control==44){
+					// ALEKSOO: second lock, if we press 44 button in time AND lock1 is unlocked (true), we unlock lock2
+					// But again, as in message.control==59, it continuously unlock lock2
+			 		if(timeOnCycle - timeConstrain < 1 && lock1){
+						timeConstrain = timeOnCycle;
+						lock2 = true;
+						std::cout << "LOCK2 TRUE" << std::endl;
+					}
 					if(message.value==127){
 						control_switch=2;
 					}
@@ -1684,6 +1700,13 @@ void ofApp::midibiz(){
                 
                 
                  if(message.control==59){
+			 		// ALEKSOO: when we press first button in combination, we get timeout refreshed 
+			 		// There is something wrong with this (or at least that's what I observed)
+			 		// When I run it and press it first time, it continuously "unlocks" lock1
+					// I don't understand why it message.control==59 is always true
+					timeConstrain = timeOnCycle;
+					lock1 = true;
+					std::cout << "LOCK1 TRUE" << std::endl;
 						
 					if(message.value==127){
                         for(int i=0;i<p_lock_number;i++){
@@ -1724,6 +1747,19 @@ void ofApp::midibiz(){
                 if(message.control!=58){
 					clear_switch=0;
                 }
+		    
+		// ALEKSOO: if locks are unlocked, then we just exit
+		if(lock1 && lock2){
+			std::cout << "EXITING..............." << std::endl;
+			_Exit(0);
+		}
+
+		// ALEKSOO: Timeout for locks, I have some problems with this one to be working properly, but it needs just some logic adjustment I think
+		if(time(NULL) - timeConstrain > 1){
+			std::cout << "CLEARING LOCKS.." << std::endl;
+			lock1 = false;
+			lock2 = false;
+		}
                 
               
             }
